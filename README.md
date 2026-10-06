@@ -1,17 +1,89 @@
-# family_connect
+# Family Connect (แอปสื่อสารครอบครัว)
 
-A new Flutter project.
+A Flutter Android app that makes it easy for elderly family members and patients at home to stay connected with remote family — big buttons, voice-first input, and an auto-updating photo frame home screen.
 
-## Getting Started
+> Full specs: [PRD.md](PRD.md) (English) · [PRD-TH.md](PRD-TH.md) (ไทย) · raw concept: [idea.md](idea.md)
 
-This project is a starting point for a Flutter application.
+## Features (MVP)
 
-A few resources to get you started if this is your first Flutter project:
+- **Photo-frame home screen** — rotating family photos, oversized call button, emergency call, daily "I'm okay" check-in
+- **Video / voice calling** — 1-to-1, prebuilt SDK (ZegoCloud), full-screen incoming calls
+- **Voice messages** — push-to-talk, offline queue, one-tap playback
+- **Photo sharing** — family uploads, auto-slideshow on the elder's home screen, local cache
+- **Family calendar** — read-only agenda for elders + reminders, CRUD for family members
+- **Text chat** — one family group chat, TTS read-aloud for elders
+- **Important-day alerts** — birthdays & Thai holidays with greeting cards
+- **Quiet notifications** — badges and in-app banners, minimal OS push
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Design principles: zero typing for elders, one tap to reach family, works offline, Thai + English.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Stack
+
+| Layer | Choice |
+|---|---|
+| App | Flutter 3.x / Dart ^3.13, Material 3 |
+| Backend | Firebase (Auth, Firestore, Storage, FCM) |
+| Calls | ZegoCloud Flutter SDK |
+| Local cache | hive / drift (offline queue + photo cache) |
+
+## Getting started
+
+Prerequisites: [Flutter 3.47+](https://docs.flutter.dev/get-started/install), a Firebase project, and (for calls) a ZegoCloud account.
+
+```bash
+flutter pub get        # install dependencies
+flutter analyze        # lint
+flutter test           # run tests
+flutter run            # run on a connected Android device/emulator
+```
+
+Firebase setup (once):
+
+```bash
+dart pub global activate flutterfire_cli
+flutterfire configure   # generates android/app/google-services.json
+```
+
+> Note: `google-services.json` is not committed — each developer configures their own Firebase project.
+
+## Project structure
+
+```
+lib/
+  main.dart            # app entry point
+PRD.md                 # product requirements (English)
+PRD-TH.md              # product requirements (Thai)
+idea.md                # original concept
+```
+
+Target structure as the app grows:
+
+```
+lib/
+  app/                 # app shell, routing, theme, l10n
+  features/
+    home/              # elder home screen (photo frame, call, check-in)
+    calls/             # incoming/outgoing call UI + CallService
+    messages/          # voice + text chat
+    photos/            # upload, album, slideshow cache
+    calendar/          # events, reminders, holidays
+    onboarding/        # invite QR/code join flow
+    settings/
+  data/                # Firestore repositories, models, security rules glue
+  core/                # widgets, utils, offline queue, constants
+```
+
+## Localization
+
+Thai and English ship together (ARB files under `lib/l10n/`). All elder-facing strings must exist in both.
+
+## Testing & quality
+
+```bash
+flutter analyze        # must be clean before commit
+flutter test           # widget/unit tests
+```
+
+## License
+
+Private / unlicensed — all rights reserved.

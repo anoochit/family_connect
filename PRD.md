@@ -120,11 +120,12 @@ The app opens directly to this screen; it is also the launcher-style default tab
 
 - **Provider:** prebuilt SDK UI, customized to our big-button theme. Recommended: **ZegoCloud** (free tier ~10k min/month, Flutter SDK, prebuilt call UI, Thailand/Asia presence). Alternatives evaluated: 100ms, Agora, Stream Video.
 - **1-to-1 only** in MVP (multi-party in v2).
-- **Incoming call screen:** full-screen with caller photo, giant green **Accept** and red **Decline** buttons, audible ringtone, works when app is backgrounded (FCM data message → SDK CallKit-equivalent on Android).
+- **Incoming call screen:** full-screen with caller photo, giant green **Accept** and red **Decline** buttons, audible ringtone, works when app is backgrounded (FCM high-priority data message wakes the app → listener reacts to the Firestore call doc).
 - **In-call UI:** oversized mute, speaker, end-call; camera flip; video area fills screen. No chat/reactions/effects in MVP.
 - **Voice-only call option** from the contact list (data-saver for elders on weak networks).
 - **Fallback:** if call fails (no internet / SDK error) → friendly screen: "การเชื่อมต่อขัดข้อง / Connection problem" + big **Retry** + **"ส่งข้อความเสียงแทน / Send a voice message instead"** escape hatch.
-- Call history (last 10) shown on contact list with missed-call badges.
+- **Call signaling (decided):** Firestore call docs — caller creates `calls/{callId}` (`from`, `to`, `type`, `status: ringing|accepted|declined|ended`, `createdAt`); callee listens via snapshot subscription; FCM data message is only the wake-up ping when the app is backgrounded. If ZegoCloud's own signaling is enabled, this doc remains the source of truth for call history/missed calls. (Firestore is the *app-level* signaling channel; the SDK's real-time media path stays SDK-managed.)
+- **Call history (last 10)** shown on contact list with missed-call badges — derived from `calls/{callId}` docs.
 
 **Acceptance:** elder receives a call with app closed → one tap answers; call connects in <5s on 4G.
 
@@ -166,7 +167,7 @@ The app opens directly to this screen; it is also the launcher-style default tab
 ### F6. Text chat
 
 - Secondary to voice, present for members who prefer typing.
-- **For elders:** read-only-ish experience — messages render large (min 20sp), auto-voice via TTS button per message, and the only input offered prominently is the mic. Text field exists but is collapsed behind an "A" button.
+- **For elders:** messages render large (min 20sp) with a 🔊 TTS read-aloud button per message. The mic button is the primary input, but the **text input is also available** (tapping the "A" button expands a large-font text field with big keyboard keys).
 - Standard: image + voice attachments, delivery/read ticks, swipe-reply in v2 (MVP: no reply/forward/edit), 100-message local history, infinite scroll to cloud.
 - Conversation structure: **one family group chat** in MVP (no DMs yet) + a **system channel** for calendar/photo notifications.
 
@@ -225,11 +226,11 @@ Rationale: elderly users disable apps that spam them; badges + banners keep them
 | Layer | Choice |
 | --- | --- |
 | App | Flutter 3.x (Dart SDK ^3.13), Material 3 |
-| State | Riverpod (or Provider if simpler — decide at kickoff) |
+| State | Riverpod |
 | Auth | Firebase Auth (anonymous + custom token via invite redemption) |
 | DB | Cloud Firestore, single `families` collection tree |
 | Files | Firebase Storage (photos, voice) |
-| Push | FCM + high-priority data messages for call signaling |
+| Push | FCM high-priority data message as wake-up only; call signaling via **Firestore call docs** (see below) |
 | Calls | ZegoCloud Flutter SDK (prebuilt UI kit) |
 | Local cache | `drift` for offline queue + photo cache (sqflite optional) |
 | Recording | `record` package → AAC/Opus |
@@ -258,6 +259,10 @@ families/{familyId}
     type: 'birthday'|'special', label, date, recurring, assigneeId, greetingVoiceUrl?
   invites/{code}
     role, createdBy, expiresAt, usedBy?
+  calls/{callId}
+    fromId, toId, type: 'video'|'voice',
+    status: 'ringing'|'accepted'|'declined'|'ended'|'missed',
+    startedAt, answeredAt?, endedAt?, durationMs?, sdkCallId?
 ```
 
 Security rules: read/write scoped to `request.auth.uid` ∈ `familyId.members`. Elders get write access limited to `messages`, `checkIns`, `seenBy` arrays.
@@ -310,7 +315,7 @@ Elders see a **2-tab bottom bar** (Home, Messages) or no bar at all (home + over
 | **W2** | Elder home screen: photo slideshow + cache, call button, check-in, badges. Family member dashboard skeleton |
 | **W3** | Voice messages: record/playback/offline queue + family chat (text) |
 | **W4** | Photo upload flow + album + slideshow integration + seen tracking |
-| **W5** | Video/voice calling via ZegoCloud: incoming/outgoing, FCM signaling, call history, fallback errors |
+| **W5** | Video/voice calling via ZegoCloud: incoming/outgoing, Firestore call signaling + FCM wake-up, call history, fallback errors |
 | **W6** | Calendar (member CRUD, elder agenda) + reminders + Thai holidays; important-days feature |
 | **W7** | Notifications policy, activity/last-seen, emergency call flow, accessibility pass (font scale, contrast, TTS), offline hardening |
 | **W8** | Usability testing with elders → fixes; crash analytics (Crashlytics), pilot build, Play internal track |
@@ -332,18 +337,18 @@ Elders see a **2-tab bottom bar** (Home, Messages) or no bar at all (home + over
 | --- | --- | --- |
 | 1 | ZegoCloud free-tier limits / cost after pilot | Prototype call in W4 spike; keep Agora/100ms as fallback; abstraction layer `CallService` interface |
 | 2 | Elder can't set up device themselves | Invite flow designed for member-assisted setup; record setup session in usability test |
-| 3 | FCM delayed → missed incoming calls | SDK handles push via data messages with `high` priority + persistent connection; test on Android Doze |
+| 3 | FCM delayed → missed incoming calls | Wake-up via high-priority FCM data message + persistent Firestore listener; if ping is delayed, elder still sees a missed-call card; test on Android Doze |
 | 4 | Photo storage costs | Client-side compression (≤300KB), 500-photo cap, check Firebase Storage pricing before pilot |
 | 5 | Two elders in one household — shared device confusion | Per-account home screen; if shared device, add account switcher (out of MVP: document as known limitation) |
 | 6 | Notification policy too quiet → elder misses messages | Pilot instrumentation on open-rate; tune in W7 |
 | 7 | Thai TTS voice quality on low-end devices | Test on 2–3 low-end Androids in W7; fallback to bundled audio |
 | 8 | Which invite redemption mechanism — QR scan needs camera permission | Always provide 6-digit code fallback |
 
-**Open decisions for kickoff:**
+**Decisions made (was open questions):**
 
-- State management: Riverpod vs Provider.
-- Firestore vs Realtime DB for call signaling (likely SDK-managed).
-- Whether elders' text input is exposed at all (currently collapsed).
+- **State management: Riverpod** — no Provider.
+- **Call signaling: Firestore** call docs (`calls/{callId}`) + FCM as background wake-up only; no Realtime Database.
+- **Elders may use text input** — mic stays primary, but the large-font text field is fully available (see F6).
 
 ---
 

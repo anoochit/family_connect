@@ -86,4 +86,4 @@ flutter test           # widget/unit tests
 
 ## License
 
-Private / unlicensed — all rights reserved.
+MIT — see [LICENSE](LICENSE).

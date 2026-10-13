@@ -9,6 +9,8 @@ A Flutter Android app for elderly/patient users at home to communicate with remo
 - `PRD.md` — product requirements (English, source of truth)
 - `PRD-TH.md` — Thai translation of the PRD
 - `idea.md` — original concept (Thai)
+- `PLAN.md` — detailed implementation plan (the *how/when*: tech decisions, dependency manifest, feature-first structure, W1–W8 milestones, testing & QA). Read it before starting a milestone.
+- `TASKS.md` — the working checklist derived from `PLAN.md`. Tick items off as you complete them; a milestone is done when all its boxes are ticked and `flutter analyze` + `flutter test` are clean.
 
 **Before adding or changing a feature, check it against the PRD.** If a request conflicts with the PRD, ask the user rather than silently diverging.
 
@@ -27,10 +29,13 @@ Run `flutter analyze` and `flutter test` after any code change and fix all error
 ## Stack & constraints
 
 - Flutter 3.47.x / Dart ^3.13, Material 3, portrait-first.
+- State management: **Riverpod** (no Provider/Bloc) — decided in PRD §8.
 - Backend: Firebase (Auth, Firestore, Storage, FCM) — not yet wired up in `lib/`.
+- Call signaling: **Firestore `calls/{callId}` docs** + FCM high-priority data message as wake-up only (no Realtime DB).
 - Video/voice calls: 3rd-party prebuilt SDK, ZegoCloud recommended — wrap behind a `CallService` interface so the provider is swappable.
 - Offline: voice messages and photo slideshow must queue/cache locally and sync on reconnect. Never break the home screen when offline.
 - Target platform for MVP: **Android phones only**. Do not add iOS/web/tablet-specific code paths unless asked.
+- Add dependencies deliberately; every new package must justify itself against the PRD stack table (PRD §5.1) and the `PLAN.md` dependency manifest.
 
 ## Code conventions
 
@@ -70,4 +75,20 @@ These are hard requirements from the PRD, not preferences:
 
 ## Current state
 
-Fresh Flutter scaffold as of 2026-10: only `lib/main.dart` and default `test/widget_test.dart` exist. Dependencies beyond `flutter`/`cupertino_icons` are not yet added — add packages deliberately and justify them against the PRD stack table.
+- **Planning complete.** `PLAN.md` holds the full implementation roadmap (tech decisions, dependency manifest, feature-first `lib/` structure, W1–W8 milestones, testing strategy, QA checklist, risk register). Start work by picking the next unfinished milestone in `PLAN.md` §7.
+- **Code not started.** Only `lib/main.dart` and default `test/widget_test.dart` exist. No Firebase/ZegoCloud dependencies added yet — add packages deliberately and justify them against `PLAN.md` §2.
+- **Firebase not provisioned.** No project configured; `google-services.json` / `firebase_options.dart` are untracked by design. Provision per `PLAN.md` §10 before wiring any Firebase feature.
+- **Tooling ready.** MCP servers `dart` (analyze, hot reload, widget inspector) and `firebase-mcp-server` are configured in `opencode.json`. Agent skills are installed under `.agents/skills/` (`flutter-*`, `dart-*`, `firebase-*`). Load the relevant skill before implementing a feature (e.g. `firestore-rules-creation` + `firebase-security-rules-auditor` for rules, `flutter-add-widget-test` for tests).
+
+## Roadmap summary (see PLAN.md §7 for detail)
+
+| Week | Deliverable |
+| --- | --- |
+| W1 | Scaffold, Firebase, auth + invite, data model + rules, i18n skeleton, design tokens |
+| W2 | Elder home (slideshow, call button, check-in, badges) + member dashboard skeleton |
+| W3 | Voice messages (record/playback/offline queue) + family text chat |
+| W4 | Photo upload + album + slideshow integration + seen tracking |
+| W5 | Video/voice calling (ZegoCloud) + Firestore signaling + FCM wake-up + history + fallback |
+| W6 | Calendar + reminders + Thai holidays + important-days |
+| W7 | Notifications policy, activity/last-seen, emergency flow, accessibility pass, offline hardening |
+| W8 | Elder usability testing → fixes, Crashlytics/analytics, pilot build |
